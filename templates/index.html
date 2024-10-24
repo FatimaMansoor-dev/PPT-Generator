@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Präsentationsinhalt Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .output-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fafafa;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: none;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .editable-content {
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            cursor: text;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Präsentationsinhalt Generator</h2>
+    <form id="presentationForm">
+        <label for="slides">Anzahl der Folien:</label>
+        <input type="number" id="slides" name="slides" required>
+
+        <label for="topic">Präsentationsthema:</label>
+        <input type="text" id="topic" name="topic" required>
+
+        <label for="description">Beschreibung:</label>
+        <textarea id="description" name="description" rows="4" required></textarea>
+
+        <button type="submit">Inhalt generieren</button>
+    </form>
+
+    <button id="exportPPT" style="display:none; margin-top: 20px;">Exportieren zu PowerPoint</button>
+
+    <div class="output-box" id="outputBox">
+        <h3>Generierter Präsentationsinhalt:</h3>
+        <div id="generatedContent" class="editable-content" contenteditable="true"></div> <!-- In div geändert für Bearbeitung -->
+    </div>
+</div>
+
+<script>
+    let generatedPresentationContent = ''; // Variable zum Speichern des generierten Inhalts
+
+    document.getElementById("presentationForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        // Formulardaten abrufen
+        const slides = document.getElementById("slides").value;
+        const topic = document.getElementById("topic").value;
+        const description = document.getElementById("description").value;
+
+        // Ladeanzeige anzeigen
+        const outputBox = document.getElementById("outputBox");
+        const generatedContent = document.getElementById("generatedContent");
+        outputBox.style.display = "block";
+        generatedContent.innerText = "Inhalt wird generiert...";
+
+        // POST-Anfrage an Flask senden
+        fetch('/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                slides: slides,
+                topic: topic,
+                description: description,
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.content) {
+                // Den generierten Inhalt speichern
+                generatedPresentationContent = data.content;
+                console.log(generatedPresentationContent);
+
+                // Den generierten Inhalt anzeigen
+                generatedContent.innerText = generatedPresentationContent; // Rohinhalt anzeigen
+                document.getElementById("exportPPT").style.display = "block"; // Export-Button anzeigen
+            } else {
+                generatedContent.innerText = "Fehler beim Generieren des Inhalts.";
+                document.getElementById("exportPPT").style.display = "none"; // Export-Button ausblenden
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+            generatedContent.innerText = "Ein Fehler ist aufgetreten.";
+        });
+    });
+
+    document.getElementById("exportPPT").addEventListener("click", function() {
+        // POST-Anfrage zum Export des generierten Inhalts senden
+        // Den Inhalt aus dem bearbeitbaren Div abrufen
+        generatedPresentationContent = document.getElementById("generatedContent").innerText;
+
+        fetch('/generate_ppt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: generatedPresentationContent,
+            }),
+        })
+        .then(response => {
+            if (response.ok) {
+                // Dateidownload auslösen
+                response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'presentation.pptx';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                });
+            } else {
+                console.error('Fehler beim Exportieren von PPT.');
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+        });
+    });
+</script>
+
+</body>
+</html>
